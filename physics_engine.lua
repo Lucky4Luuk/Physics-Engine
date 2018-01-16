@@ -1,6 +1,8 @@
 local pe = {} --library table
 local maf = require "maf"
 
+local gravity = maf.vec3(0,-9.8,0)
+
 local objects = {}
 
 function pe.getRotation(rx,ry,rz)
@@ -9,7 +11,7 @@ end
 
 function pe.add_rigidbody(type, uuid, x,y,z, rx,ry,rz, sx,sy,sz, mode)
   local bbox = {min=maf.vec3(-1,-1,-1),max=maf.vec3(1,1,1)}
-  local object = {type=type, uuid=uuid, vertices={}, faces={}, pos=maf.vec3(x,y,z), rot=pe.getRotation(rx,ry,rz), scale=maf.vec3(sx,sy,sz), mode=mode}
+  local object = {type=type, uuid=uuid, vertices={}, faces={}, pos=maf.vec3(x,y,z), rot=pe.getRotation(rx,ry,rz), scale=maf.vec3(sx,sy,sz), vel=maf.vec3(0,0,0), rotvel=maf.vec3(0,0,0), mode=mode}
   if type == "sphere" then
     bbox.min = maf.vec3(-rx-0.25,-rx-0.25,-rx-0.25)
     bbox.max = maf.vec3(rx+0.25,rx+0.25,rx+0.25)
@@ -60,6 +62,17 @@ function pe.add_rigidbody(type, uuid, x,y,z, rx,ry,rz, sx,sy,sz, mode)
   table.insert(objects, object)
 end
 
+function pe.update(dt)
+  for i=1, #objects do
+    local o = objects[i]
+    --Apply gravity
+    o.vel = o.vel + gravity * dt
+
+    --Check collisions and shit
+    o.pos = o.pos + o.vel
+  end
+end
+
 function pe.debug_draw(x,y,z, rx,ry,rz) --The camera position and rotation
   local cp = maf.vec3(x,y,z)
   local cr = maf.rotation(0,0,0,0)
@@ -71,7 +84,7 @@ function pe.debug_draw(x,y,z, rx,ry,rz) --The camera position and rotation
     for j=1, #o.faces do
       local points = {}
       for k=1, #o.faces[j] do
-        local x,y,z = o.vertices[o.faces[j][k]]:unpack()
+        local x,y,z = (o.vertices[o.faces[j][k]] + o.pos):unpack()
         local v = maf.vec3(x,y,z) - cp --By unpacking and creating a new vector3, we avoid changing the object's actual data.
         v = v:rotate(cr)
         local vx,vy,vz = v:unpack()
@@ -80,7 +93,7 @@ function pe.debug_draw(x,y,z, rx,ry,rz) --The camera position and rotation
           vy = vy * 50
           vz = vz / 5
           table.insert(points, vx / vz + love.graphics.getWidth()/2)
-          table.insert(points, vy / vz + love.graphics.getHeight()/2)
+          table.insert(points, love.graphics.getHeight() - (vy / vz + love.graphics.getHeight()/2))
         end
       end
       love.graphics.line(points)
